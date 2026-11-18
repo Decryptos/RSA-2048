@@ -2,3 +2,6 @@
 /rsa2048-lab-private.pem
 /rsa2048-lab-public.pem
 /rsa2048-lab-modulus.txt
+/rsa2048-lab-message.txt
+/rsa2048-lab-ciphertext.bin
+/rsa2048-lab-decrypted.txt
