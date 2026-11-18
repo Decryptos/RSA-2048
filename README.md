@@ -2,7 +2,7 @@
 
 An offline Python laboratory implementation of classical integer-factorisation methods for learning and controlled exercises with arbitrary-precision integers. It implements the algorithms directly; it is not a simulator.
 
-> **Educational use only.** This code could be misused to attempt recovery of weak RSA keys. Use it only with synthetic examples or data you are explicitly authorized to assess. A successful factorisation of a weak RSA modulus can enable private-key recovery and may expose encrypted data or allow forged signatures. This project is not a practical RSA-2048 cracker.
+> **Educational use only.** This code could be misused to attempt recovery of weak RSA private keys. Use it only with synthetic examples or data you are explicitly authorized to assess. Factoring a weak RSA modulus may expose encrypted data or enable forged signatures. The local OAEP exercise decrypts with the lab private key; the factorisation CLI does not decrypt messages or recover a normal RSA-2048 private key.
 
 ## What it does
 
