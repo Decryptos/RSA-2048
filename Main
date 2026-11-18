@@ -1,0 +1,705 @@
+"""Bounded arbitrary-precision factorisation for controlled laboratory experiments.
+
+
+
+Accepts integers up to 2056 bits by default. Uses small-prime elimination,
+
+Miller-Rabin, Fermat, Pollard p-1 (stage one), basic affine ECM (stage one),
+
+and Pollard-Brent. Supporting a large input does NOT imply practical
+
+factorisation of balanced RSA-sized semiprimes.
+
+
+
+For factors greater than 64 bits, primality is *probable*, not formally proved.
+
+A seeded run is reproducible but is NOT suitable for cryptographic key generation.
+
+"""
+
+
+
+import argparse
+
+import math
+
+import random
+
+import time
+
+
+
+SMALL_PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)
+
+MR64_BASES = (2, 325, 9375, 28178, 450775, 9780504, 1795265022)
+
+
+
+
+
+class FactorisationTimeout(TimeoutError):
+
+    """The allocated monotonic time budget has been exhausted."""
+
+
+
+
+
+def check_deadline(deadline):
+
+    if time.monotonic() >= deadline:
+
+        raise FactorisationTimeout("Factorisation time budget exhausted")
+
+
+
+
+
+def is_probable_prime(n, rounds=24, *, deadline=None, rng=None):
+
+    """Deterministic below 2**64; probabilistic above that threshold."""
+
+    if n < 2:
+
+        return False
+
+    for p in SMALL_PRIMES:
+
+        if n % p == 0:
+
+            return n == p
+
+
+
+    d = n - 1
+
+    s = 0
+
+    while d % 2 == 0:
+
+        s += 1
+
+        d //= 2
+
+
+
+    if n < 2**64:
+
+        bases = MR64_BASES
+
+    else:
+
+        if rounds < 1:
+
+            raise ValueError("At least one random Miller-Rabin round is required")
+
+        if rng is None:
+
+            rng = random.SystemRandom()
+
+        bases = SMALL_PRIMES + tuple(rng.randrange(2, n - 1) for _ in range(rounds))
+
+
+
+    for a in bases:
+
+        if deadline is not None:
+
+            check_deadline(deadline)
+
+        a %= n
+
+        if a < 2:
+
+            continue
+
+        x = pow(a, d, n)
+
+        if x in (1, n - 1):
+
+            continue
+
+        for _ in range(s - 1):
+
+            if deadline is not None:
+
+                check_deadline(deadline)
+
+            x = x * x % n
+
+            if x == n - 1:
+
+                break
+
+        else:
+
+            return False
+
+    return True
+
+
+
+
+
+def pollard_brent(n, deadline, rng):
+
+    """Find a nontrivial divisor or raise FactorisationTimeout."""
+
+    if n % 2 == 0:
+
+        return 2
+
+    if n % 3 == 0:
+
+        return 3
+
+
+
+    while True:
+
+        check_deadline(deadline)
+
+        y = rng.randrange(1, n)
+
+        c = rng.randrange(1, n)
+
+        m = 128
+
+        g = r = 1
+
+        ys = x = y
+
+
+
+        while g == 1:
+
+            check_deadline(deadline)
+
+            x = y
+
+            for i in range(r):
+
+                # Check every 1024 iterations, not in a 1024-iteration block.
+
+                if (i & 1023) == 0:
+
+                    check_deadline(deadline)
+
+                y = (y * y + c) % n
+
+
+
+            k = 0
+
+            while k < r and g == 1:
+
+                ys = y
+
+                q = 1
+
+                for _ in range(min(m, r - k)):
+
+                    y = (y * y + c) % n
+
+                    q = q * abs(x - y) % n
+
+                g = math.gcd(q, n)
+
+                k += m
+
+                check_deadline(deadline)
+
+            r *= 2
+
+
+
+        if g == n:
+
+            g = 1
+
+            while g == 1:
+
+                check_deadline(deadline)
+
+                ys = (ys * ys + c) % n
+
+                g = math.gcd(abs(x - ys), n)
+
+            # If this yields n, try a fresh random polynomial.
+
+        if 1 < g < n:
+
+            return g
+
+
+
+
+
+def _primes_to(bound, deadline=None):
+
+    if bound < 2:
+
+        return []
+
+    if deadline is not None:
+
+        check_deadline(deadline)
+
+    sieve = bytearray(b"\x01") * (bound + 1)
+
+    sieve[:2] = b"\x00\x00"
+
+    for i in range(2, math.isqrt(bound) + 1):
+
+        if deadline is not None and (i & 127) == 0:
+
+            check_deadline(deadline)
+
+        if sieve[i]:
+
+            sieve[i * i:bound + 1:i] = b"\x00" * (((bound - i * i) // i) + 1)
+
+    if deadline is not None:
+
+        check_deadline(deadline)
+
+    return [i for i in range(2, bound + 1) if sieve[i]]
+
+
+
+
+
+def pollard_pm1(n, bound, deadline):
+
+    """Pollard p-1 stage one: effective when some factor's p-1 is smooth."""
+
+    if bound < 2:
+
+        return None
+
+    a = 2
+
+    for p in _primes_to(bound, deadline):
+
+        check_deadline(deadline)
+
+        power = p
+
+        while power * p <= bound:
+
+            power *= p
+
+        a = pow(a, power, n)
+
+    g = math.gcd(a - 1, n)
+
+    return g if 1 < g < n else None
+
+
+
+
+
+def fermat_factor(n, max_steps, deadline):
+
+    """Find close factors of an odd integer within a bounded search."""
+
+    if n % 2 == 0:
+
+        return 2
+
+    a = math.isqrt(n)
+
+    if a * a < n:
+
+        a += 1
+
+    for i in range(max_steps):
+
+        if (i & 1023) == 0:
+
+            check_deadline(deadline)
+
+        b2 = a * a - n
+
+        b = math.isqrt(b2)
+
+        if b * b == b2:
+
+            d = a - b
+
+            if 1 < d < n:
+
+                return d
+
+        a += 1
+
+    return None
+
+
+
+
+
+def _ec_add(P, Q, a, n):
+
+    """Add affine curve points mod n; noninvertible slopes can expose factors.
+
+
+
+    None represents the point at infinity (the group identity). This is a
+
+    teaching implementation, not a constant-time or production ECM engine.
+
+    """
+
+    if P is None:
+
+        return Q, None
+
+    if Q is None:
+
+        return P, None
+
+
+
+    x1, y1 = P
+
+    x2, y2 = Q
+
+    if x1 == x2:
+
+        if (y1 + y2) % n == 0:
+
+            return None, None
+
+        if P != Q:
+
+            # Equal x mod n but mismatched y can differ across prime fields.
+
+            for candidate in (y1 + y2, y1 - y2):
+
+                g = math.gcd(candidate, n)
+
+                if 1 < g < n:
+
+                    return None, g
+
+            return None, None
+
+        den = (2 * y1) % n
+
+        num = (3 * x1 * x1 + a) % n
+
+    else:
+
+        den = (x2 - x1) % n
+
+        num = (y2 - y1) % n
+
+
+
+    g = math.gcd(den, n)
+
+    if 1 < g < n:
+
+        return None, g
+
+    if g == n:
+
+        return None, None
+
+    slope = (num * pow(den, -1, n)) % n
+
+    x3 = (slope * slope - x1 - x2) % n
+
+    return (x3, (slope * (x1 - x3) - y1) % n), None
+
+
+
+
+
+def _ec_mul(k, P, a, n, deadline):
+
+    """Double-and-add; infinity can occur during an intermediate operation."""
+
+    result = None
+
+    while k:
+
+        check_deadline(deadline)
+
+        if k & 1:
+
+            result, divisor = _ec_add(result, P, a, n)
+
+            if divisor is not None:
+
+                return None, divisor
+
+            # Do NOT stop when result is infinity: a later addition may undo it.
+
+        k >>= 1
+
+        if k:
+
+            P, divisor = _ec_add(P, P, a, n)
+
+            if divisor is not None:
+
+                return None, divisor
+
+            # Do NOT stop when P is infinity: it is a valid group identity.
+
+    return result, None
+
+
+
+
+
+def ecm_stage1(n, bound, curves, deadline, rng):
+
+    """Basic ECM stage one; not a replacement for optimized GMP-ECM."""
+
+    if bound < 2 or curves < 1:
+
+        return None
+
+    prime_powers = []
+
+    for p in _primes_to(bound, deadline):
+
+        power = p
+
+        while power * p <= bound:
+
+            power *= p
+
+        prime_powers.append(power)
+
+
+
+    for _ in range(curves):
+
+        check_deadline(deadline)
+
+        x, y, a = (rng.randrange(1, n) for _ in range(3))
+
+        b = (y * y - x * x * x - a * x) % n
+
+        discriminant = (4 * pow(a, 3, n) + 27 * pow(b, 2, n)) % n
+
+        g = math.gcd(discriminant, n)
+
+        if 1 < g < n:
+
+            return g
+
+        if g != 1:
+
+            continue
+
+        P = (x, y)
+
+        for power in prime_powers:
+
+            P, divisor = _ec_mul(power, P, a, n, deadline)
+
+            if divisor is not None:
+
+                return divisor
+
+            if P is None:
+
+                # Entire multiple is infinity; remaining multiples will be too.
+
+                break
+
+    return None
+
+
+
+
+
+def factor(n, seconds=10.0, max_bits=2056, pm1_bound=10000,
+
+           fermat_steps=10000, ecm_bound=200, ecm_curves=5, seed=None):
+
+    """Return sorted probable-prime factors or raise on timeout.
+
+
+
+    For components >64 bits, results use Miller-Rabin probable primality.
+
+    A deterministic 'seed' enables replay of lab experiments, NOT key generation.
+
+    """
+
+    if n == 0:
+
+        raise ValueError("Zero has no finite prime factorisation")
+
+    if not math.isfinite(seconds) or seconds <= 0:
+
+        raise ValueError("Time budget must be finite and positive")
+
+    if not isinstance(max_bits, int) or max_bits < 1:
+
+        raise ValueError("Maximum bit length must be a positive integer")
+
+    if abs(n).bit_length() > max_bits:
+
+        raise ValueError(f"Input exceeds {max_bits}-bit configured limit")
+
+    if not 0 <= pm1_bound <= 1000000:
+
+        raise ValueError("p-1 bound must be between 0 and 1000000")
+
+    if (not 0 <= fermat_steps <= 10000000 or not 0 <= ecm_bound <= 100000
+
+            or not 0 <= ecm_curves <= 1000):
+
+        raise ValueError("Invalid Fermat/ECM configuration")
+
+
+
+    deadline = time.monotonic() + seconds
+
+    rng = random.SystemRandom() if seed is None else random.Random(seed)
+
+    original = n
+
+    result = []
+
+    if n < 0:
+
+        result.append(-1)
+
+        n = -n
+
+
+
+    pending = [n]
+
+    while pending:
+
+        check_deadline(deadline)
+
+        value = pending.pop()
+
+        if value == 1:
+
+            continue
+
+        for p in SMALL_PRIMES:
+
+            while value % p == 0:
+
+                check_deadline(deadline)
+
+                result.append(p)
+
+                value //= p
+
+        if value == 1:
+
+            continue
+
+        if is_probable_prime(value, deadline=deadline, rng=rng):
+
+            result.append(value)
+
+            continue
+
+
+
+        divisor = (fermat_factor(value, fermat_steps, deadline)
+
+                   or pollard_pm1(value, pm1_bound, deadline)
+
+                   or ecm_stage1(value, ecm_bound, ecm_curves, deadline, rng)
+
+                   or pollard_brent(value, deadline, rng))
+
+        if not 1 < divisor < value or value % divisor:
+
+            raise RuntimeError("Factorisation algorithm returned an invalid divisor")
+
+        pending.extend((divisor, value // divisor))
+
+
+
+    result.sort()
+
+    if math.prod(result) != original:
+
+        raise RuntimeError("Factorisation failed its product invariant")
+
+    return result
+
+
+
+
+
+def main():
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument("number", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--seconds", type=float, default=10.0,
+
+                        help="Time limit (default: 10)")
+
+    parser.add_argument("--max-bits", type=int, default=2056,
+
+                        help="Maximum input bit length (default: 2056)")
+
+    parser.add_argument("--pm1-bound", type=int, default=10000,
+
+                        help="Pollard p-1 stage-one bound (0 disables)")
+
+    parser.add_argument("--fermat-steps", type=int, default=10000)
+
+    parser.add_argument("--ecm-bound", type=int, default=200)
+
+    parser.add_argument("--ecm-curves", type=int, default=5)
+
+    parser.add_argument("--seed", type=int, default=None,
+
+                        help="Optional deterministic lab seed (NOT for key generation)")
+
+    args = parser.parse_args()
+
+    try:
+
+        factors = factor(args.number, args.seconds, args.max_bits,
+
+                         args.pm1_bound, args.fermat_steps,
+
+                         args.ecm_bound, args.ecm_curves, args.seed)
+
+        if factors:
+
+            print(f"{args.number} = " + " * ".join(map(str, factors)))
+
+        else:
+
+            print("1 has no prime factors")
+
+        print("Verification:", math.prod(factors) == args.number)
+
+        if any(p > 0 and p.bit_length() > 64 for p in factors):
+
+            print("Note: factors above 64 bits are probable primes, not proven primes.")
+
+    except (ValueError, FactorisationTimeout) as exc:
+
+        parser.exit(2, f"Error: {exc}\n")
+
+
+
+
+
+if __name__ == "__main__":
+
+    main()
