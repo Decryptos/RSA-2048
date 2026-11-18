@@ -1,0 +1,4 @@
+# Local RSA educational-lab files
+/rsa2048-lab-private.pem
+/rsa2048-lab-public.pem
+/rsa2048-lab-modulus.txt
