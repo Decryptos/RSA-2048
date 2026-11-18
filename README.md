@@ -1,12 +1,12 @@
 # Bounded RSA Factorisation for Education
 
-A small, dependency-free Python implementation of integer factorisation methods for learning and controlled laboratory exercises.
+An offline Python laboratory implementation of classical integer-factorisation methods for learning and controlled exercises with arbitrary-precision integers. It implements the algorithms directly; it is not a simulator.
 
 > **Educational use only.** This code could be misused to attempt recovery of weak RSA keys. Use it only with synthetic examples or data you are explicitly authorized to assess. A successful factorisation of a weak RSA modulus can enable private-key recovery and may expose encrypted data or allow forged signatures. This project is not a practical RSA-2048 cracker.
 
 ## What it does
 
-The command-line program accepts one decimal integer and tries a bounded sequence of methods:
+The command-line factorisation program accepts one decimal integer and tries a bounded sequence of methods:
 
 - Small-prime elimination
 - Miller–Rabin primality testing
@@ -15,7 +15,11 @@ The command-line program accepts one decimal integer and tries a bounded sequenc
 - Basic affine elliptic-curve factorisation, stage one
 - Pollard–Brent
 
-It uses only the Python standard library. There is no network scanning, public-key or certificate parsing, private-key generation, or decryption workflow.
+The factorisation CLI uses only the Python standard library. It has no network scanning, public-key or certificate parsing, private-key derivation, or decryption. The separate lab guide uses OpenSSL with a locally generated private key to demonstrate real RSA-OAEP encryption and decryption.
+
+## Hands-on RSA lab
+
+See [LAB_GUIDE.md](LAB_GUIDE.md) for an end-to-end local exercise: generate a standards-size RSA-2048 key pair, encrypt and decrypt a short message with RSA-OAEP, then try the factoriser on the public modulus. The decryption uses the private key already generated for the exercise; it is distinct from recovering a private key by factoring.
 
 ## Important limits
 
@@ -26,7 +30,7 @@ It uses only the Python standard library. There is no network scanning, public-k
 - Factors larger than 64 bits are reported as *probable primes*, not formally proven primes.
 - A deterministic `--seed` is for reproducing laboratory runs only; it must not be used for cryptographic key generation.
 
-A 2048-bit input can still be factored quickly when it is deliberately weak—for example, when it contains a very small factor. That is a demonstration of the weakness in the input, not evidence that balanced RSA-2048 is breakable.
+A 2048-bit input can still be factored quickly when it is deliberately weak—for example, when it contains a very small factor. That demonstrates a weakness in the input, not that balanced RSA-2048 is breakable.
 
 ## Quick start
 
