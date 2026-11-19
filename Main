@@ -739,11 +739,36 @@ def wiener_lab_demo():
     return valid
 
 
+def defensive_lab_demo():
+    """Offline illustrations; not a test of a deployed service or timing."""
+    def leaky_response(case):
+        return {'bad_header': 'invalid header', 'bad_length': 'invalid length'}[case]
+    def uniform_response(case):
+        return 'invalid input'
+    cases = ('bad_header', 'bad_length')
+    leaky = len({leaky_response(case) for case in cases}) > 1
+    uniform = len({uniform_response(case) for case in cases}) == 1
+    # Textbook RSA arithmetic, tiny fixed key, deliberately not production signing.
+    n, e, d, message = 3233, 17, 2753, 42
+    signature = pow(message, d, n)
+    original_valid = pow(signature, e, n) == message
+    modified_signature = (signature + 1) % n
+    altered_rejected = pow(modified_signature, e, n) != message
+    print('Simulated distinct padding errors detected:', leaky)
+    print('Simulated uniform padding errors:', uniform)
+    print('Toy RSA signature verified:', original_valid)
+    print('Altered toy signature rejected:', altered_rejected)
+    print('Simulation only: no timing analysis or assessment of deployed services.')
+    return leaky and uniform and original_valid and altered_rejected
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--defensive-lab", action="store_true", help="Run fixed offline padding and signature checks")
 
     parser.add_argument("--wiener-lab", action="store_true", help="Run fixed small-private-exponent demonstration")
 
@@ -774,6 +799,18 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.defensive_lab:
+
+        if args.number is not None or args.wiener_lab or args.broadcast_lab:
+
+            parser.error("--defensive-lab cannot be combined with another mode or number")
+
+        if not defensive_lab_demo():
+
+            parser.exit(1, "Defensive lab verification failed\n")
+
+        return
 
     if args.wiener_lab:
 
