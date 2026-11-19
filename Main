@@ -28,6 +28,8 @@ import random
 
 import subprocess
 
+import statistics
+
 import sys
 
 import time
@@ -762,11 +764,35 @@ def defensive_lab_demo():
     return leaky and uniform and original_valid and altered_rejected
 
 
+def timing_lab_demo():
+    """Interleaved timings of intentionally different toy workloads only.
+
+    Python scheduling, hardware and runtime noise affect measurements. This
+    is not a statistical side-channel assessment or constant-time proof.
+    """
+    samples = {"short": [], "long": []}
+    rng = random.Random(42)
+    order = ["short", "long"] * 200
+    rng.shuffle(order)
+    for label in order:
+        start = time.perf_counter_ns()
+        total = 0
+        for j in range(100 if label == "short" else 1000):
+            total += j
+        samples[label].append(time.perf_counter_ns() - start)
+    print("Toy workload medians in nanoseconds:")
+    for label in ("short", "long"):
+        print(f"  {label}: {statistics.median(samples[label]):.0f} (n={len(samples[label])})")
+    print("Illustration only: no service, real padding, statistical proof, or constant-time guarantee.")
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--timing-lab", action="store_true", help="Run offline toy timing demonstration")
 
     parser.add_argument("--defensive-lab", action="store_true", help="Run fixed offline padding and signature checks")
 
@@ -799,6 +825,16 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.timing_lab:
+
+        if args.number is not None or args.defensive_lab or args.wiener_lab or args.broadcast_lab:
+
+            parser.error("--timing-lab cannot be combined with another mode or number")
+
+        timing_lab_demo()
+
+        return
 
     if args.defensive_lab:
 
