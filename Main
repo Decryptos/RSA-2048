@@ -24,6 +24,8 @@ import argparse
 
 import math
 
+import json
+
 import random
 
 import subprocess
@@ -786,11 +788,45 @@ def timing_lab_demo():
     print("Illustration only: no service, real padding, statistical proof, or constant-time guarantee.")
 
 
+def key_generation_lab():
+    """Offline fixed-size key-generation illustrations; no external keys."""
+    def prime(rng):
+        while True:
+            candidate = rng.getrandbits(32) | (1 << 31) | 1
+            if is_probable_prime(candidate):
+                return candidate
+    start = time.monotonic()
+    rng = random.Random(23)
+    shared, q1, q2 = prime(rng), prime(rng), prime(rng)
+    while q2 == q1 or q1 == shared or q2 == shared:
+        q1, q2 = prime(rng), prime(rng)
+    n1, n2 = shared * q1, shared * q2
+    common = math.gcd(n1, n2)
+    shared_ok = 1 < common < min(n1, n2) and n1 % common == n2 % common == 0
+    weak1, weak2 = prime(random.Random(91)), prime(random.Random(91))
+    secure = random.SystemRandom()
+    secure1, secure2 = prime(secure), prime(secure)
+    print(json.dumps({
+        "shared_prime": {"method": "gcd", "input_bits": [n1.bit_length(), n2.bit_length()],
+                         "outcome": "shared_factor_verified" if shared_ok else "failed", "factor_verified": shared_ok},
+        "randomness": {"method": "controlled_generator_comparison", "prime_bits": 32,
+                       "seeded_generators_repeat": weak1 == weak2,
+                       "system_random_samples_differ": secure1 != secure2,
+                       "note": "Two different samples do not prove a generator secure."},
+        "elapsed_seconds": round(time.monotonic() - start, 6),
+        "time_limit_seconds": None,
+        "scope": "synthetic offline teaching examples; no real key assessment"
+    }, sort_keys=True))
+    return shared_ok and weak1 == weak2
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--key-generation-lab", action="store_true", help="Run offline shared-prime and randomness examples")
 
     parser.add_argument("--timing-lab", action="store_true", help="Run offline toy timing demonstration")
 
@@ -825,6 +861,18 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.key_generation_lab:
+
+        if args.number is not None or args.timing_lab or args.defensive_lab or args.wiener_lab or args.broadcast_lab:
+
+            parser.error("--key-generation-lab cannot be combined with another mode or number")
+
+        if not key_generation_lab():
+
+            parser.exit(1, "Key-generation lab verification failed\n")
+
+        return
 
     if args.timing_lab:
 
