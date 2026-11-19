@@ -701,11 +701,51 @@ def broadcast_lab_demo():
     return success
 
 
+def wiener_lab_demo():
+    """Fixed deliberately weak RSA example, not a general RSA attack.
+
+    Educational reference: Prof. Bill Buchanan, CTF Generator: Low private
+    exponent (d) in RSA — the Wiener attack.
+    https://medium.com/asecuritysite-when-bob-met-alice/ctf-generator-low-private-exponent-d-in-rsa-the-wiener-attack-6270493de210
+    """
+    p, q, d = 1009, 1013, 5
+    n = p * q
+    e = pow(d, -1, (p - 1) * (q - 1))
+    numerator, denominator = e, n
+    h0, h1, k0, k1 = 0, 1, 1, 0
+    recovered = None
+    while denominator:
+        a, remainder = divmod(numerator, denominator)
+        numerator, denominator = denominator, remainder
+        h0, h1 = h1, a * h1 + h0
+        k0, k1 = k1, a * k1 + k0
+        k, candidate = h1, k1
+        if not k or (e * candidate - 1) % k:
+            continue
+        phi = (e * candidate - 1) // k
+        total = n - phi + 1
+        discriminant = total * total - 4 * n
+        if discriminant < 0:
+            continue
+        root = math.isqrt(discriminant)
+        if root * root == discriminant and (total + root) % 2 == 0:
+            x, y = (total + root) // 2, (total - root) // 2
+            if x > 1 and y > 1 and x * y == n:
+                recovered = candidate
+                break
+    valid = recovered == d
+    print("Wiener lab: deliberately small private exponent; verified:", valid)
+    print("This weakness is not evidence against properly generated RSA.")
+    return valid
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--wiener-lab", action="store_true", help="Run fixed small-private-exponent demonstration")
 
     parser.add_argument("--broadcast-lab", action="store_true", help="Run fixed textbook RSA broadcast demonstration")
 
@@ -734,6 +774,18 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.wiener_lab:
+
+        if args.number is not None or args.broadcast_lab:
+
+            parser.error("--wiener-lab accepts no input number or other lab mode")
+
+        if not wiener_lab_demo():
+
+            parser.exit(1, "Wiener lab verification failed\n")
+
+        return
 
     if args.broadcast_lab:
 
