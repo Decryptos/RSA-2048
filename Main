@@ -677,11 +677,37 @@ def factor(n, seconds=10.0, max_bits=2056, pm1_bound=10000,
 
 
 
+def broadcast_lab_demo():
+    """Fixed, deliberately insecure textbook RSA example; no external input."""
+    moduli = (101 * 113, 107 * 131, 137 * 149)
+    message = 42
+    ciphertexts = [pow(message, 3, n) for n in moduli]
+    product = math.prod(moduli)
+    combined = sum(c * (product // n) * pow(product // n, -1, n)
+                   for c, n in zip(ciphertexts, moduli)) % product
+    low, high = 0, 1
+    while high ** 3 < combined:
+        high *= 2
+    while low + 1 < high:
+        mid = (low + high) // 2
+        if mid ** 3 < combined:
+            low = mid
+        else:
+            high = mid
+    success = high ** 3 == combined and high == message
+    print("Broadcast lab: raw RSA, e=3, same message to three recipients")
+    print("Recovered lab plaintext matches:", success)
+    print("This demonstrates an unpadded-message flaw, not key recovery.")
+    return success
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument("number", type=int, help="Integer to factor (decimal)")
+    parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--broadcast-lab", action="store_true", help="Run fixed textbook RSA broadcast demonstration")
 
     parser.add_argument("--seconds", type=float, default=10.0,
 
@@ -708,6 +734,22 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.broadcast_lab:
+
+        if args.number is not None:
+
+            parser.error("--broadcast-lab accepts no input number")
+
+        if not broadcast_lab_demo():
+
+            parser.exit(1, "Broadcast lab verification failed\n")
+
+        return
+
+    if args.number is None:
+
+        parser.error("number is required unless --broadcast-lab is selected")
 
     try:
 
