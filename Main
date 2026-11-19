@@ -28,6 +28,16 @@ import json
 
 import random
 
+import os
+
+import platform
+
+import pathlib
+
+import shutil
+
+import tempfile
+
 import subprocess
 
 import statistics
@@ -820,11 +830,58 @@ def key_generation_lab():
     return shared_ok and weak1 == weak2
 
 
+def rng_comparison_lab():
+    """Local repeatability comparison, not a cryptographic randomness test."""
+    seed = 42
+    def py_sequence():
+        rng = random.Random(seed)
+        return [rng.getrandbits(32) for _ in range(4)]
+    results = {"python_random": {"implementation": platform.python_implementation(),
+                                  "version": platform.python_version(),
+                                  "same_seed_repeats": py_sequence() == py_sequence()},
+               "os_urandom": {"two_samples_differ": os.urandom(16) != os.urandom(16),
+                              "note": "Different samples do not establish security."}}
+    examples = {
+        "c_rand": ("cc", ".c", r"""#include <stdio.h>
+#include <stdlib.h>
+int main(void) { srand(42); for(int i=0;i<4;i++) printf("%d ", rand()); return 0; }
+"""),
+        "cpp_mt19937": ("c++", ".cpp", r"""#include <iostream>
+#include <random>
+int main() { std::mt19937 g(42); for(int i=0;i<4;i++) std::cout << g() << ' '; }
+""")}
+    with tempfile.TemporaryDirectory(prefix="rng_lab_") as tmp:
+        for name, (compiler, suffix, source) in examples.items():
+            executable = shutil.which(compiler)
+            if not executable:
+                results[name] = {"status": "skipped: compiler unavailable"}
+                continue
+            source_path = pathlib.Path(tmp) / ("demo" + suffix)
+            binary = pathlib.Path(tmp) / ("demo_" + name)
+            source_path.write_text(source, encoding="utf-8")
+            try:
+                version = subprocess.run([executable, "--version"], check=True, capture_output=True, text=True, timeout=5).stdout.splitlines()[0]
+                subprocess.run([executable, str(source_path), "-o", str(binary)], check=True, capture_output=True, text=True, timeout=20)
+                first = subprocess.run([str(binary)], check=True, capture_output=True, text=True, timeout=5).stdout
+                second = subprocess.run([str(binary)], check=True, capture_output=True, text=True, timeout=5).stdout
+                results[name] = {"status": "ok", "compiler": version,
+                                 "same_seed_repeats": first == second,
+                                 "note": "C rand varies by runtime; MT19937 is not cryptographically secure."}
+            except (subprocess.SubprocessError, OSError, IndexError) as exc:
+                results[name] = {"status": "error", "error_type": type(exc).__name__}
+    print(json.dumps({"seed": seed, "results": results,
+                      "scope": "offline demonstration; repeatability is not a security test"}, sort_keys=True))
+    return results["python_random"]["same_seed_repeats"] and all(
+        item.get("status") != "error" and item.get("same_seed_repeats", True) for item in results.values())
+
+
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("number", nargs="?", type=int, help="Integer to factor (decimal)")
+
+    parser.add_argument("--rng-comparison-lab", action="store_true", help="Compare local PRNG repeatability offline")
 
     parser.add_argument("--key-generation-lab", action="store_true", help="Run offline shared-prime and randomness examples")
 
@@ -861,6 +918,18 @@ def main():
     parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
 
     args = parser.parse_args()
+
+    if args.rng_comparison_lab:
+
+        if args.number is not None or args.key_generation_lab or args.timing_lab or args.defensive_lab or args.wiener_lab or args.broadcast_lab:
+
+            parser.error("--rng-comparison-lab cannot be combined with another mode or number")
+
+        if not rng_comparison_lab():
+
+            parser.exit(1, "Randomness comparison failed\n")
+
+        return
 
     if args.key_generation_lab:
 
