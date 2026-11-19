@@ -26,6 +26,10 @@ import math
 
 import random
 
+import subprocess
+
+import sys
+
 import time
 
 
@@ -520,9 +524,40 @@ def ecm_stage1(n, bound, curves, deadline, rng):
 
 
 
+def siqs_divisor(n, deadline, seed=7):
+    """Bounded experimental SIQS for small composites; requires SymPy.
+
+    A worker process enforces the remaining shared time budget. The 128-bit
+    cap is a research limit, not a claim that SIQS can solve RSA-2048.
+    """
+    if n.bit_length() > 128:
+        return None
+    check_deadline(deadline)
+    code = ("import sys; from sympy.ntheory.qs import qs; "
+            "n=int(sys.argv[1]); seed=int(sys.argv[2]); "
+            "print(','.join(str(x) for x in qs(n,3000,10000,seed=seed)))")
+    try:
+        proc = subprocess.run([sys.executable, '-c', code, str(n), str(seed)],
+                              capture_output=True, text=True,
+                              timeout=max(0.001, deadline-time.monotonic()))
+    except subprocess.TimeoutExpired:
+        raise FactorisationTimeout('Factorisation time budget exhausted')
+    check_deadline(deadline)
+    if proc.returncode:
+        raise RuntimeError('SIQS failed; install sympy to use --siqs')
+    try:
+        for item in proc.stdout.strip().split(','):
+            d = int(item)
+            if 1 < d < n and n % d == 0:
+                return d
+    except ValueError as exc:
+        raise RuntimeError('SIQS returned invalid output') from exc
+    return None
+
+
 def factor(n, seconds=10.0, max_bits=2056, pm1_bound=10000,
 
-           fermat_steps=10000, ecm_bound=200, ecm_curves=5, seed=None):
+           fermat_steps=10000, ecm_bound=200, ecm_curves=5, seed=None, siqs=False):
 
     """Return sorted probable-prime factors or raise on timeout.
 
@@ -618,6 +653,8 @@ def factor(n, seconds=10.0, max_bits=2056, pm1_bound=10000,
 
                    or ecm_stage1(value, ecm_bound, ecm_curves, deadline, rng)
 
+                   or (siqs_divisor(value, deadline, seed if seed is not None else 7) if siqs else None)
+
                    or pollard_brent(value, deadline, rng))
 
         if not 1 < divisor < value or value % divisor:
@@ -668,6 +705,8 @@ def main():
 
                         help="Optional deterministic lab seed (NOT for key generation)")
 
+    parser.add_argument("--siqs", action="store_true", help="Try experimental SIQS on composites up to 128 bits (requires sympy)")
+
     args = parser.parse_args()
 
     try:
@@ -676,7 +715,7 @@ def main():
 
                          args.pm1_bound, args.fermat_steps,
 
-                         args.ecm_bound, args.ecm_curves, args.seed)
+                         args.ecm_bound, args.ecm_curves, args.seed, args.siqs)
 
         if factors:
 
@@ -692,7 +731,7 @@ def main():
 
             print("Note: factors above 64 bits are probable primes, not proven primes.")
 
-    except (ValueError, FactorisationTimeout) as exc:
+    except (ValueError, FactorisationTimeout, RuntimeError) as exc:
 
         parser.exit(2, f"Error: {exc}\n")
 
