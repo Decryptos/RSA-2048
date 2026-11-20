@@ -167,6 +167,30 @@ The 2048-bit configuration and four regression tests were verified locally;
 3072- and 4096-bit configurations are supported but not yet independently
 executed in that verification.
 
+## Offline RSA-CRT single-branch fault lab
+
+`crt_fault_lab.py` demonstrates a synthetic Bellcore-style RSA-CRT
+signature fault against freshly generated **local** 2048-, 3072-, or
+4096-bit RSA keys. It corrupts one CRT residue, checks that the faulty
+signature fails public verification, recovers a nontrivial factor via
+`gcd(s_fault**e - message, n)`, reconstructs a private exponent, and
+checks decryption. A defensive signer verifies the CRT result before
+release and rejects the fault.
+
+```sh
+python -m pip install cryptography
+python crt_fault_lab.py --bits 2048
+python crt_fault_lab.py --bits 3072
+python crt_fault_lab.py --bits 4096
+python -m unittest -v test_crt_fault_lab.py
+```
+
+All three key sizes and the 2048-bit regression test were run successfully
+in the local isolated laboratory. This **does not** demonstrate inducing
+faults in deployed implementations, recovering arbitrary public keys, or
+factoring RSA moduli without a faulty signature. The lab does not contact
+external systems or publish private key material.
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
