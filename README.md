@@ -124,6 +124,27 @@ not production encryption and not a public-key factorisation attack.
 python -m unittest -v test_rsa_keygen_lab.py
 ```
 
+## Offline chosen-ciphertext attack lab
+
+`chosen_ciphertext_lab.py` demonstrates the multiplicative malleability of
+**textbook RSA** with a fixed local key (n=3233, e=17). The attacker modifies
+a ciphertext by multiplying by `r**e mod n`, obtains the raw decrypted
+integer from a **simulated** vulnerable oracle, and unblinds it using the
+modular inverse of `r`. The expected recovered plaintext is 65.
+
+```sh
+python chosen_ciphertext_lab.py
+python -m unittest -v test_chosen_ciphertext_lab.py
+```
+
+Expected known-vector values: ciphertext 2790, modified ciphertext 1258,
+oracle response 455, recovered plaintext 65, verified True.
+
+This is **plaintext recovery from a deliberately vulnerable raw RSA oracle**,
+not recovery of the RSA private key, not factorisation of RSA-2048/3072/4096,
+and not a demonstration against OAEP or any external service. The lab
+performs no network activity.
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
