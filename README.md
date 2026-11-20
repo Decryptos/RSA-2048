@@ -59,6 +59,92 @@ Run the test suite with:
 python -m unittest test_factorisation.py
 ```
 
+
+## Interactive public-key factorisation lab
+
+For **locally generated or explicitly authorised RSA keys only**, install the
+`cryptography` package and run:
+
+```sh
+python -m pip install cryptography
+python public_key_lab.py --public-key rsa2048-lab-public.pem --seconds 10
+```
+
+For Buchanan's `getPrime(bits)` example with `bits=1024`, the two primes are
+1024 bits **each**, while their product `n` is 2047 or 2048 bits. The CLI
+therefore defaults to `--prime-bits 1024` and `--max-bits 2056`.
+`--prime-bits` is an expected size for reporting and consistency checking;
+it cannot reveal or verify the actual prime sizes without factoring `n`.
+
+Omit `--public-key` to paste a PEM-encoded RSA public key when prompted.
+The tool extracts the RSA modulus (`n`) and public exponent (`e`), attempts
+factorisation using the existing bounded engine, prints verified candidate
+prime factors if found, then asks whether to reconstruct the private key.
+When reconstruction succeeds, it prints the private exponent `d` to the
+terminal but does not save or export a private-key file. Treat terminal
+output as sensitive. Do not run the command on someone else's keys without
+explicit authorisation.
+
+**Important:** The ordinary outcome for a properly generated RSA-2048 key
+is that the program does *not* find its two prime factors within the budget.
+A timeout proves neither security nor vulnerability. The separate OAEP lab
+uses an already-known private key, not an RSA breakthrough.
+
+Run offline tests with:
+
+```sh
+python -m unittest -v test_public_key_lab.py
+```
+
+
+## Selectable 2048-, 3072-, and 4096-bit textbook RSA generator
+
+The offline `rsa_keygen_lab.py` script adapts Buchanan's prime-generation
+demonstration. The selected size refers to **total modulus bits**, not bits
+per prime: 2048 uses two 1024-bit primes, 3072 uses two 1536-bit primes, and
+4096 uses two 2048-bit primes. The generator enforces the requested actual
+modulus length, distinct primes, and invertibility of exponent 65537.
+
+Install PyCryptodome and choose a size:
+
+```sh
+python -m pip install pycryptodome
+python rsa_keygen_lab.py Hello 2048
+python rsa_keygen_lab.py Hello 3072
+python rsa_keygen_lab.py Hello 4096
+```
+
+To print sensitive private factors and exponent in a **private offline lab**
+only, add `--show-private`. By default only public numbers, raw ciphertext,
+decrypted plaintext and the verification outcome are printed. This is
+**textbook RSA without secure padding**, suitable for demonstration only,
+not production encryption and not a public-key factorisation attack.
+
+```sh
+python -m unittest -v test_rsa_keygen_lab.py
+```
+
+## Offline chosen-ciphertext attack lab
+
+`chosen_ciphertext_lab.py` demonstrates the multiplicative malleability of
+**textbook RSA** with a fixed local key (n=3233, e=17). The attacker modifies
+a ciphertext by multiplying by `r**e mod n`, obtains the raw decrypted
+integer from a **simulated** vulnerable oracle, and unblinds it using the
+modular inverse of `r`. The expected recovered plaintext is 65.
+
+```sh
+python chosen_ciphertext_lab.py
+python -m unittest -v test_chosen_ciphertext_lab.py
+```
+
+Expected known-vector values: ciphertext 2790, modified ciphertext 1258,
+oracle response 455, recovered plaintext 65, verified True.
+
+This is **plaintext recovery from a deliberately vulnerable raw RSA oracle**,
+not recovery of the RSA private key, not factorisation of RSA-2048/3072/4096,
+and not a demonstration against OAEP or any external service. The lab
+performs no network activity.
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
