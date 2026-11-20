@@ -31,6 +31,14 @@ class CRTAuthenticationTests(unittest.TestCase):
             p=rp,q=rq,d=recovered_d,dmp1=recovered_d%(rp-1),
             dmq1=recovered_d%(rq-1),iqmp=pow(rq,-1,rp),
             public_numbers=rsa.RSAPublicNumbers(e,n)).private_key()
+        # Offline confidentiality impact: only the recovered key can decrypt OAEP.
+        secret = b'Decrypto locally generated OAEP fixture'
+        oaep = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        ciphertext = original.public_key().encrypt(secret, oaep)
+        self.assertEqual(reconstructed.decrypt(ciphertext, oaep), secret)
+        unrelated_decryptor = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        with self.assertRaises(ValueError):
+            unrelated_decryptor.decrypt(ciphertext, oaep)
         challenge = b'local-auth-challenge:decrypto:nonce-0001'
         scheme = padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH)
         signature = reconstructed.sign(challenge,scheme,hashes.SHA256())
