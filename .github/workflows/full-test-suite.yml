@@ -1,0 +1,26 @@
+name: RSA full test suite
+on:
+  push:
+    branches:
+      - feature/interactive-rsa-public-key-lab
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip cryptography sympy
+      - name: Run all tests
+        run: python -m unittest discover -v
