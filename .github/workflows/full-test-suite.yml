@@ -21,6 +21,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: python -m pip install --upgrade pip cryptography sympy
+        run: python -m pip install --upgrade pip cryptography sympy pycryptodome
       - name: Run all tests
         run: python -m unittest discover -v
