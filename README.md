@@ -96,6 +96,34 @@ Run offline tests with:
 python -m unittest -v test_public_key_lab.py
 ```
 
+
+## Selectable 2048-, 3072-, and 4096-bit textbook RSA generator
+
+The offline `rsa_keygen_lab.py` script adapts Buchanan's prime-generation
+demonstration. The selected size refers to **total modulus bits**, not bits
+per prime: 2048 uses two 1024-bit primes, 3072 uses two 1536-bit primes, and
+4096 uses two 2048-bit primes. The generator enforces the requested actual
+modulus length, distinct primes, and invertibility of exponent 65537.
+
+Install PyCryptodome and choose a size:
+
+```sh
+python -m pip install pycryptodome
+python rsa_keygen_lab.py Hello 2048
+python rsa_keygen_lab.py Hello 3072
+python rsa_keygen_lab.py Hello 4096
+```
+
+To print sensitive private factors and exponent in a **private offline lab**
+only, add `--show-private`. By default only public numbers, raw ciphertext,
+decrypted plaintext and the verification outcome are printed. This is
+**textbook RSA without secure padding**, suitable for demonstration only,
+not production encryption and not a public-key factorisation attack.
+
+```sh
+python -m unittest -v test_rsa_keygen_lab.py
+```
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
