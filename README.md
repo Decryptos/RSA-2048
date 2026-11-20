@@ -145,6 +145,28 @@ not recovery of the RSA private key, not factorisation of RSA-2048/3072/4096,
 and not a demonstration against OAEP or any external service. The lab
 performs no network activity.
 
+## Three-way RSA oracle comparison
+
+Run the offline comparison with locally generated RSA keys and OAEP-SHA256:
+
+```sh
+python -m pip install cryptography
+python oracle_comparison_lab.py --bits 2048 --trials 8
+python oracle_comparison_lab.py --bits 3072 --trials 8
+python oracle_comparison_lab.py --bits 4096 --trials 8
+python -m unittest -v test_oracle_comparison_lab.py
+```
+
+The lab contrasts (1) one-query plaintext recovery from a simulated raw
+textbook-RSA decryption oracle, (2) a deliberately leaky boundary classifier
+relevant to Manger-style attacks, and (3) rejection of modified ciphertexts
+by RSA-OAEP-SHA256. The boundary classifier is **not** a complete Manger
+plaintext-recovery implementation. OAEP rejection is **not** a constant-time
+or comprehensive side-channel audit. No external services are contacted.
+The 2048-bit configuration and four regression tests were verified locally;
+3072- and 4096-bit configurations are supported but not yet independently
+executed in that verification.
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
