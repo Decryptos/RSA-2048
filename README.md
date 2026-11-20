@@ -59,6 +59,37 @@ Run the test suite with:
 python -m unittest test_factorisation.py
 ```
 
+
+## Interactive public-key factorisation lab
+
+For **locally generated or explicitly authorised RSA keys only**, install the
+`cryptography` package and run:
+
+```sh
+python -m pip install cryptography
+python public_key_lab.py --public-key rsa2048-lab-public.pem --seconds 10
+```
+
+Omit `--public-key` to paste a PEM-encoded RSA public key when prompted.
+The tool extracts the RSA modulus (`n`) and public exponent (`e`), attempts
+factorisation using the existing bounded engine, prints verified candidate
+prime factors if found, then asks whether to reconstruct the private key.
+When reconstruction succeeds, it prints the private exponent `d` to the
+terminal but does not save or export a private-key file. Treat terminal
+output as sensitive. Do not run the command on someone else's keys without
+explicit authorisation.
+
+**Important:** The ordinary outcome for a properly generated RSA-2048 key
+is that the program does *not* find its two prime factors within the budget.
+A timeout proves neither security nor vulnerability. The separate OAEP lab
+uses an already-known private key, not an RSA breakthrough.
+
+Run offline tests with:
+
+```sh
+python -m unittest -v test_public_key_lab.py
+```
+
 ## Responsible use
 
 This project is intended for education, synthetic test cases, and controlled labs. Do not use it to investigate third-party keys or systems without explicit authorization. Treat any factorisation of a real key as a potential key compromise and follow the applicable disclosure process; do not publish recovered private material.
