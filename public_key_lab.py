@@ -71,14 +71,21 @@ def main(argv=None, *, input_fn=input):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-key", type=Path, help="Path to a local PEM RSA public key; otherwise paste it")
     parser.add_argument("--seconds", type=float, default=10.0, help="Total bounded factorisation budget")
-    parser.add_argument("--max-bits", type=int, default=2056, help="Maximum modulus size accepted by the engine")
+    parser.add_argument("--max-bits", type=int, default=2056, help="Maximum modulus size accepted by the engine (not individual prime size)")
+    parser.add_argument("--prime-bits", type=int, default=1024, help="Expected size of each generated prime, e.g. 1024 for RSA-2048")
     args = parser.parse_args(argv)
     try:
+        if args.prime_bits < 2:
+            raise ValueError("Expected prime bit length must be at least 2")
         n, e = load_public_key(args.public_key, input_fn=input_fn)
         if n.bit_length() > args.max_bits:
             raise ValueError(f"Modulus exceeds the configured {args.max_bits}-bit input limit")
         print(f"RSA public exponent: {e}")
         print(f"RSA modulus bit length: {n.bit_length()}")
+        print(f"Expected prime size (user supplied): {args.prime_bits} bits each")
+        if not 2 * args.prime_bits - 1 <= n.bit_length() <= 2 * args.prime_bits:
+            print("Warning: modulus bit length is inconsistent with two primes of the expected size.")
+        print("Prime sizes cannot be verified from the public modulus alone.")
         print("Attempting bounded factorisation using the existing engine...")
         engine = load_factoriser()
         try:
