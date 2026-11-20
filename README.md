@@ -70,6 +70,12 @@ python -m pip install cryptography
 python public_key_lab.py --public-key rsa2048-lab-public.pem --seconds 10
 ```
 
+For Buchanan's `getPrime(bits)` example with `bits=1024`, the two primes are
+1024 bits **each**, while their product `n` is 2047 or 2048 bits. The CLI
+therefore defaults to `--prime-bits 1024` and `--max-bits 2056`.
+`--prime-bits` is an expected size for reporting and consistency checking;
+it cannot reveal or verify the actual prime sizes without factoring `n`.
+
 Omit `--public-key` to paste a PEM-encoded RSA public key when prompted.
 The tool extracts the RSA modulus (`n`) and public exponent (`e`), attempts
 factorisation using the existing bounded engine, prints verified candidate
