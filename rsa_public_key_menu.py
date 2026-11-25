@@ -1,12 +1,15 @@
 """Inspect a pasted RSA public key in the offline education lab."""
 
-import subprocess
+import hashlib
 import sys
-from pathlib import Path
 
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+    load_pem_public_key,
+)
 
 
 def main():
@@ -44,13 +47,15 @@ def main():
         )
         return 1
 
-    print(f"Confirmed RSA public key: {public_key.key_size} bits.")
-    print("Running factorisation on the fixed synthetic modulus 3233.", flush=True)
-    factorisation_script = Path(__file__).with_name("Main")
-    return subprocess.run(
-        [sys.executable, str(factorisation_script), "3233", "--seconds", "5"],
-        check=False,
-    ).returncode
+    numbers = public_key.public_numbers()
+    der = public_key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+    fingerprint = hashlib.sha256(der).hexdigest()
+
+    print(f"RSA modulus size: {numbers.n.bit_length()} bits")
+    print(f"Public exponent: {numbers.e}")
+    print(f"SHA-256 public-key fingerprint (SPKI DER): {fingerprint}")
+    print("Prime generation and private-key custody require separate evidence.")
+    return 0
 
 
 if __name__ == "__main__":
