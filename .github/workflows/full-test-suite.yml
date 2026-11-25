@@ -1,8 +1,8 @@
-name: RSA full test suite
+name: Decrypto full test suite
 on:
   push:
     branches:
-      - feature/interactive-rsa-public-key-lab
+      - main
   pull_request:
     branches:
       - main

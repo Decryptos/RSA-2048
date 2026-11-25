@@ -1,4 +1,26 @@
-# Bounded RSA Factorisation for Education
+# Decrypto - Interactive Cryptography Workbench
+
+
+## Interactive workbench
+
+```sh
+python -m pip install -r requirements.txt
+python decrypto.py
+```
+
+The menu combines bounded factorisation, verified Wiener/shared-prime key recovery,
+textbook integer decryption after recovery, genuine RSA-OAEP-SHA256 file decryption
+with a supplied or recovered private key, PEM/DER public key and X.509 certificate
+parsing, and the existing RSA/AES labs. New AES-CTR/ChaCha20 nonce-reuse labs have
+fresh-nonce controls. AES-GCM/ChaCha20-Poly1305 controls cover empty messages,
+modified tags and incorrect associated data. Certificate parsing is not trust validation.
+Private factors stay in memory; output files are created without overwriting existing files.
+
+Run a single lab with `python decrypto.py --lab nonce` or `--lab oaep`.
+See [DECRYPTION_METHODS.md](DECRYPTION_METHODS.md) for the algorithm map and
+[RESEARCH_STATUS.md](RESEARCH_STATUS.md) for research prerequisites and implementation gaps.
+The legacy factorisation CLI below remains available unchanged. Statements about
+that CLI not decrypting do not apply to the new workbench.
 
 An offline Python laboratory implementation of classical integer-factorisation methods for learning and controlled exercises with arbitrary-precision integers. It implements the algorithms directly; it is not a simulator.
 
@@ -9,11 +31,11 @@ An offline Python laboratory implementation of classical integer-factorisation m
 The command-line factorisation program accepts one decimal integer and tries a bounded sequence of methods:
 
 - Small-prime elimination
-- Miller–Rabin primality testing
+- Miller-Rabin primality testing
 - Fermat factorisation
-- Pollard p−1, stage one
+- Pollard p-1, stage one
 - Basic affine elliptic-curve factorisation, stage one
-- Pollard–Brent
+- Pollard-Brent
 
 The factorisation CLI uses only the Python standard library. It has no network scanning, public-key or certificate parsing, private-key derivation, or decryption. The separate lab guide uses OpenSSL with a locally generated private key to demonstrate real RSA-OAEP encryption and decryption.
 
@@ -25,12 +47,12 @@ See [LAB_GUIDE.md](LAB_GUIDE.md) for an end-to-end local exercise: generate a st
 
 - The default input-size ceiling is **2056 bits**. This only limits the size of an accepted integer; it does not mean the program can factor every integer of that size.
 - The default time budget is **10 seconds**.
-- The default Fermat, Pollard p−1, and ECM settings are deliberately bounded. Pollard–Brent runs only until the time budget expires.
+- The default Fermat, Pollard p-1, and ECM settings are deliberately bounded. Pollard-Brent runs only until the time budget expires.
 - The implementation does not include the General Number Field Sieve or an optimized production ECM engine. It is not expected to factor properly generated, balanced RSA-2048 moduli.
 - Factors larger than 64 bits are reported as *probable primes*, not formally proven primes.
 - A deterministic `--seed` is for reproducing laboratory runs only; it must not be used for cryptographic key generation.
 
-A 2048-bit input can still be factored quickly when it is deliberately weak—for example, when it contains a very small factor. That demonstrates a weakness in the input, not that balanced RSA-2048 is breakable.
+A 2048-bit input can still be factored quickly when it is deliberately weak-for example, when it contains a very small factor. That demonstrates a weakness in the input, not that balanced RSA-2048 is breakable.
 
 ## Quick start
 

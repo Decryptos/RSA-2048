@@ -12,7 +12,8 @@ import time
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 
-factor = importlib.machinery.SourceFileLoader('factor_lab', str(pathlib.Path(__file__).with_name('Main'))).load_module()
+from factor_engine import load_engine
+factor = load_engine()
 
 
 def attempt(label, n, budget=3):

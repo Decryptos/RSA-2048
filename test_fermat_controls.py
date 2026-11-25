@@ -9,9 +9,8 @@ import time
 import unittest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-main = importlib.machinery.SourceFileLoader(
-    "fermat_control_main", str(Path(__file__).with_name("Main"))
-).load_module()
+from factor_engine import load_engine
+main = load_engine()
 
 
 class FermatControls(unittest.TestCase):
