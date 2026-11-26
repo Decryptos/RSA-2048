@@ -1,0 +1,4 @@
+# Pinned runtime dependencies for the private Railway RSA laboratory.
+cryptography==46.0.4
+pycryptodome==3.23.0
+sympy==1.14.0
