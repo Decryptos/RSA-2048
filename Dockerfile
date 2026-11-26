@@ -1,8 +1,22 @@
 FROM python:3.12-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
-RUN python -m pip install --no-cache-dir cryptography
-COPY rsa_public_key_menu.py ./rsa_public_key_menu.py
+
+# Pin dependencies to an auditable set for this private laboratory build.
+COPY requirements-cloud.txt /app/requirements-cloud.txt
+RUN python -m pip install --no-cache-dir -r /app/requirements-cloud.txt
+
+# Package the real existing factorisation engine and offline workbench.
+COPY Main /app/Main
+COPY *.py /app/
+
+# Build fails if a critical import or known RSA functional control fails.
+RUN python -B -c "import railway_health; railway_health.run_checks()"
+
 USER 65534:65534
 
-CMD ["sh", "-c", "python -B -c 'import rsa_public_key_menu' && echo 'RSA public-key menu ready. After connecting with Railway SSH, run: python /app/rsa_public_key_menu.py' && exec sleep infinity"]
+EXPOSE 8080
+CMD ["python", "-B", "/app/railway_health.py"]
